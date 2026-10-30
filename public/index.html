@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulseline · Realtime Telehealth Platform</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{
+  --ink:#0B2027;
+  --teal-900:#0E3B3C;
+  --teal-800:#124F4E;
+  --teal-700:#146C6C;
+  --teal-600:#1B8481;
+  --teal-500:#26A29C;
+  --teal-200:#BFE3DE;
+  --teal-100:#DCEFEC;
+  --mint-50:#F5FBF9;
+  --coral:#FF5B39;
+  --coral-dark:#DF4425;
+  --coral-100:#FFE3DB;
+  --amber:#FFB648;
+  --green:#2FA84F;
+  --green-100:#DFF4E5;
+  --red:#E5484D;
+  --red-100:#FCE3E4;
+  --slate:#5B6B72;
+  --slate-500:#7C8B92;
+  --slate-200:#E3EAEA;
+  --slate-100:#EEF3F2;
+  --white:#FFFFFF;
+  
+  --font-display: 'Eras Bold ITC', 'Eras ITC', 'Trebuchet MS', sans-serif;
+  --font-body: 'Cambria', 'Georgia', serif;
+  --font-mono: 'Courier New', monospace;
+  
+  --radius:14px;
+  --shadow-sm:0 1px 2px rgba(11,32,39,.06);
+  --shadow-md:0 8px 24px rgba(11,32,39,.08);
+  --shadow-lg:0 20px 48px rgba(11,32,39,.14);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--font-body);
+  color:var(--ink);
+  background:var(--mint-50);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+
+h1,h2,h3,h4{font-family:var(--font-display); margin:0; color:var(--teal-900); font-weight:700;}
+p{margin:0;}
+.mono{font-family:var(--font-mono); letter-spacing:.02em;}
+.eyebrow{
+  font-family:var(--font-display); font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--teal-600); font-weight:700;
+}
+
+.hidden{display:none !important;}
+.container{max-width:1240px; margin:0 auto; padding:0 32px;}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  border-radius:999px; border:1px solid transparent; padding:12px 22px;
+  font-weight:700; font-family:var(--font-display); font-size:14px; transition:all .15s ease;
+  white-space:nowrap;
+}
+.btn:active{transform:translateY(1px);}
+.btn-primary{background:var(--coral); color:#fff; box-shadow:0 6px 16px rgba(255,91,57,.32);}
+.btn-primary:hover{background:var(--coral-dark);}
+.btn-teal{background:var(--teal-700); color:#fff;}
+.btn-teal:hover{background:var(--teal-800);}
+.btn-ghost{background:transparent; color:var(--teal-800); border-color:var(--slate-200);}
+.btn-ghost:hover{border-color:var(--teal-500); background:var(--teal-100);}
+.btn-sm{padding:8px 14px; font-size:12px; border-radius:999px;}
+.btn-danger{background:var(--red-100); color:var(--red);}
+.btn-block{width:100%;}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
+
+.pill{
+  display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px;
+  font-size:12px; font-weight:700; font-family:var(--font-display);
+}
+.pill-green{background:var(--green-100); color:#1E7A3B;}
+.pill-amber{background:#FFF1DA; color:#9A6300;}
+.pill-red{background:var(--red-100); color:#B3242A;}
+.pill-teal{background:var(--teal-100); color:var(--teal-800);}
+.pill-slate{background:var(--slate-100); color:var(--slate);}
+.card{background:#fff; border:1px solid var(--slate-200); border-radius:var(--radius); box-shadow:var(--shadow-sm);}
+.stack-16>*+*{margin-top:16px;}
+
+/* Pulse animation */
+.pulse-wrap{width:100%; overflow:visible;}
+.pulse-line{stroke:var(--coral); stroke-width:2.5; fill:none; stroke-linecap:round; stroke-linejoin:round;
+  stroke-dasharray:900; stroke-dashoffset:900; animation:draw 2.8s ease-out forwards infinite;}
+@keyframes draw{ 0%{stroke-dashoffset:900;} 55%{stroke-dashoffset:0;} 100%{stroke-dashoffset:-900;} }
+
+/* Navigation */
+.land-nav{position:sticky; top:0; z-index:20; background:rgba(245,251,249,.85); backdrop-filter:blur(10px); border-bottom:1px solid var(--slate-200);}
+.land-nav-inner{display:flex; align-items:center; justify-content:space-between; padding:18px 32px;}
+.brand{display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:700; font-size:22px; color:var(--teal-900);}
+.brand-mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,var(--teal-600),var(--teal-900)); display:flex;align-items:center;justify-content:center;}
+.land-nav-links{display:flex; gap:28px; font-size:15px; font-weight:700; font-family:var(--font-display); color:var(--teal-800);}
+.hero{background:linear-gradient(180deg,var(--mint-50) 0%, #fff 100%); padding:64px 0 40px;}
+.hero-grid{display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center;}
+.hero h1{font-size:52px; line-height:1.06;}
+.hero h1 em{font-style:italic; color:var(--coral); font-family:var(--font-body);}
+.hero-sub{font-size:18px; color:var(--slate); max-width:460px; margin-top:18px; line-height:1.6;}
+.hero-stats{display:flex; gap:34px; margin-top:40px;}
+.hero-stat b{display:block; font-family:var(--font-display); font-size:26px; color:var(--teal-900);}
+.hero-stat span{font-size:12px; color:var(--slate); font-family:var(--font-display); font-weight:700;}
+
+/* Vitals banner */
+.vitals-card{background:var(--teal-900); border-radius:22px; padding:30px; color:#fff; box-shadow:var(--shadow-lg); position:relative;}
+.vitals-top{display:flex; justify-content:space-between; align-items:center;}
+.avatar-ring{width:52px;height:52px;border-radius:50%; display:flex;align-items:center;justify-content:center; font-family:var(--font-display); font-weight:700; font-size:17px; color:#fff; flex-shrink:0;}
+.vitals-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:22px;}
+.vitals-metric{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:14px;}
+.vitals-metric b{display:block; font-family:var(--font-display); font-size:22px;}
+.vitals-metric span{font-size:11px; color:#9FC9C4; font-family:var(--font-display); font-weight:700; text-transform:uppercase;}
+
+/* Auth Layout */
+.login-band{padding:0 0 90px;}
+.login-grid{display:grid; grid-template-columns:1fr 1fr; border-radius:22px; overflow:hidden; box-shadow:var(--shadow-lg); border:1px solid var(--slate-200);}
+.login-side{background:var(--ink); color:#fff; padding:46px; position:relative;}
+.login-side h3{color:#fff; font-size:26px; margin-bottom:14px;}
+.login-side-list{margin-top:26px; display:flex; flex-direction:column; gap:14px;}
+.login-side-list div{display:flex; gap:10px; font-size:14.5px; color:#DCEFEC;}
+.check{width:18px;height:18px;border-radius:50%;background:var(--teal-600); display:flex;align-items:center;justify-content:center; font-size:11px; font-family:var(--font-display);}
+.login-form-side{background:#fff; padding:46px;}
+.role-tabs{display:flex; background:var(--slate-100); border-radius:999px; padding:4px; gap:4px; margin-bottom:26px;}
+.role-tab{flex:1; text-align:center; padding:10px 6px; border-radius:999px; font-size:13.5px; font-weight:700; font-family:var(--font-display); color:var(--slate); background:transparent; border:none;}
+.role-tab.active{background:var(--teal-900); color:#fff;}
+.form-row{margin-bottom:16px;}
+.form-row label{display:block; font-size:12px; font-weight:700; color:var(--teal-800); margin-bottom:6px; font-family:var(--font-display); letter-spacing:.02em; text-transform:uppercase;}
+.input{width:100%; padding:12px 14px; border:1.5px solid var(--slate-200); border-radius:10px; font-size:15px; color:var(--ink); background:#fcfefd;}
+.input:focus{border-color:var(--teal-500); outline:none;}
+
+/* OTP UI */
+.otp-input-group{display:flex; gap:8px;}
+.otp-input-group input{flex:1; text-align:center; font-size:20px; font-weight:700; font-family:var(--font-display); letter-spacing:4px;}
+
+/* App Shell */
+.app-shell{display:none; min-height:100vh; grid-template-columns:250px 1fr;}
+.app-shell.active{display:grid;}
+.sidebar{background:var(--ink); color:#fff; padding:22px 16px; display:flex; flex-direction:column; position:sticky; top:0; height:100vh;}
+.sidebar .brand{color:#fff; padding:6px 10px 22px; font-size:19px;}
+.side-nav{display:flex; flex-direction:column; gap:2px; margin-top:8px;}
+.side-link{display:flex; align-items:center; gap:11px; padding:11px 12px; border-radius:10px; color:#AFC7C4; font-size:14px; font-weight:700; font-family:var(--font-display); background:transparent; border:none; text-align:left; width:100%;}
+.side-link:hover{background:rgba(255,255,255,.06); color:#fff;}
+.side-link.active{background:var(--teal-700); color:#fff;}
+.side-spacer{flex:1;}
+.side-user{border-top:1px solid rgba(255,255,255,.12); padding-top:14px;}
+.side-user-row{display:flex; align-items:center; gap:10px; padding:6px 8px;}
+.side-user-name{font-size:14px; font-weight:700; font-family:var(--font-display); color:#fff;}
+.logout-btn{margin-top:10px; width:100%; text-align:left; background:rgba(255,91,57,.12); color:#FF9C86; padding:10px 12px; border-radius:10px; border:none; font-size:13px; font-weight:700; font-family:var(--font-display);}
+
+.main{padding:28px 34px 60px; overflow-y:auto;}
+.topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:26px; flex-wrap:wrap; gap:14px;}
+.topbar h2{font-size:26px;}
+.stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:26px;}
+.stat-card{padding:20px; border-radius:14px;}
+.stat-card b{display:block; font-family:var(--font-display); font-size:27px; margin-top:6px;}
+.stat-card .lbl{font-size:11.5px; font-family:var(--font-display); font-weight:700; text-transform:uppercase;}
+
+/* Doctor grid */
+.toolbar{display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;}
+.doctor-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:18px;}
+.doctor-card{padding:22px; display:flex; flex-direction:column; gap:12px;}
+.doctor-head{display:flex; gap:12px; align-items:center;}
+.doctor-name{font-family:var(--font-display); font-size:17px; font-weight:700;}
+.doctor-spec{font-size:13px; color:var(--teal-700); font-weight:700; font-family:var(--font-display);}
+.fee{font-family:var(--font-display); font-size:19px; color:var(--teal-900);}
+
+/* Tables */
+.table-wrap{overflow-x:auto; border-radius:14px; border:1px solid var(--slate-200); background:#fff;}
+table{width:100%; border-collapse:collapse; font-size:14px;}
+thead th{text-align:left; padding:13px 16px; background:var(--slate-100); font-family:var(--font-display); font-size:11px; text-transform:uppercase; color:var(--slate); font-weight:700;}
+tbody td{padding:14px 16px; border-top:1px solid var(--slate-100); vertical-align:middle;}
+.td-strong{font-weight:700; font-family:var(--font-display); color:var(--teal-900);}
+
+/* Modals */
+.modal-backdrop{position:fixed; inset:0; background:rgba(11,32,39,.55); backdrop-filter:blur(2px); display:none; align-items:center; justify-content:center; z-index:100; padding:24px;}
+.modal-backdrop.active{display:flex;}
+.modal{background:#fff; border-radius:20px; width:100%; max-width:640px; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow-lg);}
+.modal-head{padding:22px 26px; border-bottom:1px solid var(--slate-200); display:flex; align-items:center; justify-content:space-between;}
+.modal-body{padding:26px;}
+.close-x{width:32px;height:32px;border-radius:50%; border:none; background:var(--slate-100); font-size:16px; color:var(--slate);}
+
+/* Toast */
+#toast-wrap{position:fixed; top:20px; right:20px; z-index:300; display:flex; flex-direction:column; gap:10px;}
+.toast{background:var(--ink); color:#fff; padding:13px 18px; border-radius:12px; font-size:14px; display:flex; align-items:center; gap:10px;}
+.toast.ok b{color:#7CE29A; font-family:var(--font-display);} .toast.err b{color:#FF9C86; font-family:var(--font-display);}
+</style>
+</head>
+<body>
+
+<div id="toast-wrap"></div>
+<!-- ======================= LANDING & AUTH ======================= -->
+<div id="view-landing">
+  <nav class="land-nav">
+    <div class="land-nav-inner">
+      <div class="brand">
+        <span class="brand-mark">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M2 12h4l2-7 4 14 3-9 2 4h5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>Pulseline
+      </div>
+      <div class="land-nav-links">
+        <span>Platform</span>
+        <span>Specialists</span>
+        <span>Clinics</span>
+      </div>
+      <button class="btn btn-teal btn-sm" onclick="scrollToId('login-card')">Sign In</button>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="container hero-grid">
+      <div>
+        <p class="eyebrow">Realtime Telehealth Network</p>
+        <h1 style="margin-top:12px;">Instant clinical care with <em>verified OTP access.</em></h1>
+        <p class="hero-sub">Pulseline connects patients directly via instant SMS/OTP sign-in, maintaining complete real-time clinical medical charts and live schedule tracking.</p>
+        <div class="hero-stats">
+          <div class="hero-stat"><b>100%</b><span>OTP VERIFIED</span></div>
+          <div class="hero-stat"><b>4.9/5</b><span>PATIENT RATING</span></div>
+          <div class="hero-stat"><b>REALTIME</b><span>DATABASE SYNC</span></div>
+        </div>
+      </div>
+      <div class="vitals-card">
+        <div class="vitals-top">
+          <span class="pill pill-green">● Live Telehealth Online</span>
+          <span class="mono" style="color:#8FC9C4; font-size:12px;">SECURE-SESSION</span>
+        </div>
+        <div class="vitals-grid">
+          <div class="vitals-metric"><b>Instant</b><span>Mobile Auth</span></div>
+          <div class="vitals-metric"><b>₹499</b><span>Starting Fee</span></div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <section class="login-band" id="login-card">
+    <div class="container">
+      <div class="login-grid">
+        <div class="login-side">
+          <span class="eyebrow" style="color:#8FC9C4;">Access Portal</span>
+          <h3>Direct Access. Zero Hassle.</h3>
+          <p>Patients sign in using their phone number & instant verification code. Doctors and Clinic Admins log in via dedicated secure credentials.</p>
+          <div class="login-side-list">
+            <div><span class="check">✓</span>Instant Phone + OTP Verification</div>
+            <div><span class="check">✓</span>Realtime Clinical Consultation Board</div>
+            <div><span class="check">✓</span>Centralized Patient Records Database</div>
+          </div>
+        </div>
+        <div class="login-form-side">
+          <div class="role-tabs">
+            <button class="role-tab active" data-role="patient" onclick="setLoginRole('patient')">Patient</button>
+            <button class="role-tab" data-role="doctor" onclick="setLoginRole('doctor')">Doctor</button>
+            <button class="role-tab" data-role="admin" onclick="setLoginRole('admin')">Admin</button>
+          </div>
+          <!-- PATIENT PHONE OTP FORM -->
+          <div id="patient-otp-form-wrap">
+            <div id="phone-step-1">
+              <div class="form-row">
+                <label>Mobile Phone Number</label>
+                <input class="input" type="tel" id="patient-phone" placeholder="Enter 10-digit number (e.g. 9876543210)" maxlength="10">
+              </div>
+              <button type="button" class="btn btn-primary btn-block" onclick="sendPatientOtp()">Send Realtime OTP →</button>
+            </div>
+            <div id="phone-step-2" class="hidden" style="margin-top:12px;">
+              <div class="form-row">
+                <label>Enter 6-Digit OTP</label>
+                <div class="otp-input-group">
+                  <input class="input" type="text" id="patient-otp-input" placeholder="••••••" maxlength="6">
+                </div>
+                <p style="font-size:12px; color:var(--slate-500); margin-top:6px;" id="otp-hint-msg"></p>
+              </div>
+              <button type="button" class="btn btn-teal btn-block" onclick="verifyPatientOtp()">Verify &amp; Continue →</button>
+              <button type="button" class="btn btn-ghost btn-block btn-sm" style="margin-top:6px;" onclick="resetOtpStep()">Change Number</button>
+            </div>
+          </div>
+
+          <!-- DOCTOR / ADMIN PASSWORD FORM -->
+          <form id="staff-auth-form" class="hidden" onsubmit="handleStaffAuth(event)">
+            <div class="form-row"><label>Email Address</label><input class="input" type="email" id="staff-email" required placeholder="doctor@pulseline.com"></div>
+            <div class="form-row"><label>Password</label><input class="input" type="password" id="staff-password" required placeholder="••••••••"></div>
+            <button type="submit" class="btn btn-primary btn-block">Sign In to Dashboard →</button>
+            <p class="form-hint" style="font-size:12px; color:var(--slate-500); margin-top:10px; text-align:center;">
+              Doctor: anjali.sharma@pulseline.com / doc123<br>Admin: admin@pulseline.com / admin123
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ======================= PATIENT DETAILS MODAL ======================= -->
+<div class="modal-backdrop" id="onboarding-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Complete Your Patient Profile</h3>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px; color:var(--slate); margin-bottom:16px;">New patient registered via mobile. Please fill out these details for real-time prescriptions and consultations.</p>
+      <form onsubmit="submitOnboarding(event)" class="stack-16">
+        <div class="form-row"><label>Full Name</label><input class="input" id="ob-name" required placeholder="John Doe"></div>
+        <div class="form-row"><label>Email Address</label><input class="input" type="email" id="ob-email" required placeholder="john@example.com"></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+          <div class="form-row"><label>Age</label><input class="input" type="number" id="ob-age" required placeholder="28"></div>
+          <div class="form-row"><label>Gender</label>
+            <select class="input" id="ob-gender">
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-row"><label>Blood Group</label><input class="input" id="ob-blood" placeholder="O+"></div>
+        </div>
+        <div class="form-row"><label>Residential Address</label><input class="input" id="ob-address" placeholder="House #, Street, City"></div>
+        <button type="submit" class="btn btn-primary btn-block">Save Details &amp; Launch Dashboard</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= PATIENT DASHBOARD ======================= -->
+<div class="app-shell" id="shell-patient">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M2 12h4l2-7 4 14 3-9 2 4h5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Pulseline</div>
+    <nav class="side-nav">
+      <button class="side-link active" onclick="showPatientSubView('doctors')">🔎 Find Doctors</button>
+      <button class="side-link" onclick="showPatientSubView('appointments')">📅 My Appointments</button>
+      <button class="side-link" onclick="showPatientSubView('profile')">👤 My Profile</button>
+    </nav>
+    <div class="side-spacer"></div>
+    <div class="side-user">
+      <div class="side-user-row">
+        <div class="avatar-ring" style="width:36px;height:36px;font-size:13px;background:var(--teal-600);" id="patient-avatar">P</div>
+        <div><div class="side-user-name" id="patient-name-tag">—</div><div style="font-size:11px; color:#8FC9C4;" id="patient-phone-tag">—</div></div>
+      </div>
+      <button class="logout-btn" onclick="logout()">↩ Sign Out</button>
+    </div>
+  </aside>
+  <main class="main" id="patient-main"></main>
+</div>
+
+<!-- ======================= DOCTOR & ADMIN DASHBOARDS ======================= -->
+<div class="app-shell" id="shell-doctor">
+  <aside class="sidebar">
+    <div class="brand">Pulseline Doc</div>
+    <nav class="side-nav">
+      <button class="side-link active" onclick="renderDoctorMain()">📋 Patient Queue</button>
+    </nav>
+    <div class="side-spacer"></div>
+    <div class="side-user">
+      <div class="side-user-name" id="doctor-name-tag">—</div>
+      <button class="logout-btn" onclick="logout()">↩ Sign Out</button>
+    </div>
+  </aside>
+  <main class="main" id="doctor-main"></main>
+</div>
+
+<div class="app-shell" id="shell-admin">
+  <aside class="sidebar">
+    <div class="brand">Admin Ledger</div>
+    <nav class="side-nav">
+      <button class="side-link active">📊 Master Overview</button>
+    </nav>
+    <div class="side-spacer"></div>
+    <div class="side-user">
+      <button class="logout-btn" onclick="logout()">↩ Sign Out</button>
+    </div>
+  </aside>
+  <main class="main" id="admin-main"></main>
+</div>
+
+<!-- BOOKING MODAL -->
+<div class="modal-backdrop" id="booking-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="booking-title">Book Consultation</h3>
+      <button class="close-x" onclick="document.getElementById('booking-modal').classList.remove('active')">✕</button>
+    </div>
+    <div class="modal-body" id="booking-body"></div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+const state = {
+  currentUser: JSON.parse(localStorage.getItem('user')) || null,
+  token: localStorage.getItem('token') || null,
+  loginRole: 'patient',
+  pendingPhone: '',
+  doctors: [],
+  appointments: [],
+  patientSubView: 'doctors'
+};
+
+socket.on('data_updated', async () => {
+  if (state.token && state.currentUser) {
+    await fetchPlatformData();
+    renderAll();
+  }
+});
+
+function toast(msg, kind='ok'){
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast '+kind;
+  el.innerHTML = '<b>'+(kind==='ok'?'✓':'!')+'</b><span>'+msg+'</span>';
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.remove(); }, 3000);
+}
+
+function scrollToId(id){ document.getElementById(id).scrollIntoView({behavior:'smooth'}); }
+
+function setLoginRole(role){
+  state.loginRole = role;
+  document.querySelectorAll('.role-tab').forEach(b => b.classList.toggle('active', b.dataset.role === role));
+  document.getElementById('patient-otp-form-wrap').classList.toggle('hidden', role !== 'patient');
+  document.getElementById('staff-auth-form').classList.toggle('hidden', role === 'patient');
+}
+
+// REALTIME PHONE OTP LOGIC
+async function sendPatientOtp(){
+  const phone = document.getElementById('patient-phone').value.trim();
+  if(phone.length < 10){
+    return toast('Please enter a valid 10-digit phone number', 'err');
+  }
+
+  const res = await fetch('/api/auth/otp/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone })
+  });
+  const data = await res.json();
+  if(!res.ok) return toast(data.error, 'err');
+
+  state.pendingPhone = phone;
+  document.getElementById('phone-step-1').classList.add('hidden');
+  document.getElementById('phone-step-2').classList.remove('hidden');
+  
+  // Realtime helper display for testing
+  document.getElementById('otp-hint-msg').innerHTML = `OTP sent! (Test OTP: <b style="color:var(--coral); font-family:var(--font-display);">${data.debugOtp}</b>)`;
+  document.getElementById('patient-otp-input').value = data.debugOtp;
+  toast('Realtime verification OTP dispatched.');
+}
+
+function resetOtpStep(){
+  document.getElementById('phone-step-1').classList.remove('hidden');
+  document.getElementById('phone-step-2').classList.add('hidden');
+}
+
+async function verifyPatientOtp(){
+  const otp = document.getElementById('patient-otp-input').value.trim();
+  if(!otp) return toast('Please enter the OTP', 'err');
+
+  const res = await fetch('/api/auth/otp/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone: state.pendingPhone, otp })
+  });
+  const data = await res.json();
+  if(!res.ok) return toast(data.error, 'err');
+
+  if(data.isNewUser){
+    // Launch Patient Onboarding Form
+    document.getElementById('onboarding-modal').classList.add('active');
+  } else {
+    // Existing User: Log straight into Dashboard
+    state.token = data.token;
+    state.currentUser = data.user;
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    
+    toast('Authenticated successfully!');
+    await fetchPlatformData();
+    enterShell('patient');
+  }
+}
+
+async function submitOnboarding(e){
+  e.preventDefault();
+  const payload = {
+    phone: state.pendingPhone,
+    name: document.getElementById('ob-name').value.trim(),
+    email: document.getElementById('ob-email').value.trim(),
+    age: +document.getElementById('ob-age').value,
+    gender: document.getElementById('ob-gender').value,
+    blood_group: document.getElementById('ob-blood').value.trim(),
+    address: document.getElementById('ob-address').value.trim()
+  };
+
+  const res = await fetch('/api/auth/patient/onboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if(!res.ok) return toast(data.error, 'err');
+
+  document.getElementById('onboarding-modal').classList.remove('active');
+  state.token = data.token;
+  state.currentUser = data.user;
+  localStorage.setItem('token', data.token);
+  localStorage.setItem('user', JSON.stringify(data.user));
+
+  toast('Patient profile registered in DB!');
+  await fetchPlatformData();
+  enterShell('patient');
+}
+
+// DOCTOR / ADMIN AUTH
+async function handleStaffAuth(e){
+  e.preventDefault();
+  const email = document.getElementById('staff-email').value;
+  const password = document.getElementById('staff-password').value;
+
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, role: state.loginRole })
+  });
+  const data = await res.json();
+  if(!res.ok) return toast(data.error, 'err');
+
+  state.token = data.token;
+  state.currentUser = data.user;
+  localStorage.setItem('token', data.token);
+  localStorage.setItem('user', JSON.stringify(data.user));
+
+  await fetchPlatformData();
+  enterShell(state.currentUser.role);
+}
+
+async function fetchPlatformData(){
+  if(!state.token) return;
+  const [docsRes, apptsRes] = await Promise.all([
+    fetch('/api/doctors'),
+    fetch('/api/appointments', { headers: { 'Authorization': `Bearer ${state.token}` } })
+  ]);
+  state.doctors = await docsRes.json();
+  state.appointments = await apptsRes.json();
+}
+
+function enterShell(role){
+  document.getElementById('view-landing').style.display='none';
+  document.querySelectorAll('.app-shell').forEach(s => s.classList.remove('active'));
+  document.getElementById('shell-' + role).classList.add('active');
+
+  if(role === 'patient'){
+    document.getElementById('patient-name-tag').textContent = state.currentUser.name;
+    document.getElementById('patient-phone-tag').textContent = state.currentUser.phone || '';
+    renderPatientMain();
+  } else if(role === 'doctor'){
+    document.getElementById('doctor-name-tag').textContent = state.currentUser.name;
+    renderDoctorMain();
+  } else {
+    renderAdminMain();
+  }
+}
+
+function showPatientSubView(v){
+  state.patientSubView = v;
+  renderPatientMain();
+}
+
+function renderPatientMain(){
+  const el = document.getElementById('patient-main');
+  if(state.patientSubView === 'doctors'){
+    el.innerHTML = `
+      <div class="topbar"><div><h2>Available Specialists</h2><p>Book real-time appointments</p></div></div>
+      <div class="doctor-grid">
+        ${state.doctors.map(d => `
+          <div class="card doctor-card">
+            <div class="doctor-head">
+              <div class="avatar-ring" style="background:var(--teal-700);">${d.name.charAt(4)}</div>
+              <div><div class="doctor-name">${d.name}</div><div class="doctor-spec">${d.specialty}</div></div>
+            </div>
+            <p style="font-size:13.5px; color:var(--slate);">${d.degree} · ${d.experience} yrs exp</p>
+            <div class="fee">₹${d.fee}</div>
+            <button class="btn btn-primary btn-sm" onclick="openBooking('${d.id}')">Book Consultation</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } else if(state.patientSubView === 'appointments'){
+    el.innerHTML = `
+      <div class="topbar"><div><h2>My Appointment History</h2><p>Real-time records from DB</p></div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Doctor</th><th>Date &amp; Time</th><th>Type</th><th>Fee</th><th>Payment</th><th>Status</th></tr></thead>
+        <tbody>
+          ${state.appointments.map(a => `
+            <tr>
+              <td class="mono">${a.id}</td>
+              <td class="td-strong">${a.doctorName}</td>
+              <td>${a.date} · ${a.time}</td>
+              <td>${a.type.toUpperCase()}</td>
+              <td class="td-strong">₹${a.amount}</td>
+              <td><span class="pill pill-green">${a.payment_status}</span></td>
+              <td><span class="pill pill-teal">${a.status}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table></div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div class="topbar"><div><h2>Patient Medical Record</h2><p>Personal Details stored in DB</p></div></div>
+      <div class="card" style="max-width:540px; padding:24px;">
+        <div class="stack-16">
+          <div><label class="eyebrow">Name</label><div class="td-strong">${state.currentUser.name}</div></div>
+          <div><label class="eyebrow">Verified Phone</label><div class="mono">${state.currentUser.phone}</div></div>
+          <div><label class="eyebrow">Email</label><div>${state.currentUser.email}</div></div>
+          <div><label class="eyebrow">Blood Group</label><div>${state.currentUser.blood_group || 'Not Specified'}</div></div>
+          <div><label class="eyebrow">Address</label><div>${state.currentUser.address || 'Not Provided'}</div></div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function renderDoctorMain(){
+  const el = document.getElementById('doctor-main');
+  el.innerHTML = `
+    <div class="topbar"><div><h2>Clinical Queue</h2><p>Live Patient Bookings</p></div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Appt ID</th><th>Patient</th><th>Phone</th><th>Symptoms</th><th>Type</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>
+        ${state.appointments.map(a => `
+          <tr>
+            <td class="mono">${a.id}</td>
+            <td class="td-strong">${a.patient_name}</td>
+            <td class="mono">${a.patient_phone || '—'}</td>
+            <td>${a.symptoms || '—'}</td>
+            <td>${a.type.toUpperCase()}</td>
+            <td><span class="pill pill-teal">${a.status}</span></td>
+            <td>${a.status==='upcoming'? `<button class="btn btn-teal btn-sm" onclick="markCompleted('${a.id}')">Complete</button>` : 'Completed'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table></div>
+  `;
+}
+
+function renderAdminMain(){
+  const el = document.getElementById('admin-main');
+  el.innerHTML = `
+    <div class="topbar"><div><h2>Platform Management</h2><p>Master Clinical Ledger</p></div></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>Patient</th><th>Doctor</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody>
+        ${state.appointments.map(a => `
+          <tr>
+            <td class="mono">${a.id}</td>
+            <td class="td-strong">${a.patient_name}</td>
+            <td>${a.doctorName}</td>
+            <td class="td-strong">₹${a.amount}</td>
+            <td><span class="pill pill-green">${a.payment_status}</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table></div>
+  `;
+}
+
+function openBooking(docId){
+  const doc = state.doctors.find(d => d.id === docId);
+  document.getElementById('booking-title').textContent = 'Book ' + doc.name;
+  document.getElementById('booking-body').innerHTML = `
+    <div class="stack-16">
+      <div class="form-row"><label>Consultation Type</label>
+        <select class="input" id="bk-type">
+          <option value="video">Video Call</option>
+          <option value="clinic">Clinic Visit</option>
+          <option value="home">Home Consultation</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Symptoms</label><textarea class="input" id="bk-symptoms" placeholder="Describe symptoms..."></textarea></div>
+      <button class="btn btn-primary btn-block" onclick="submitBooking('${doc.id}', ${doc.fee})">Confirm &amp; Pay ₹${doc.fee}</button>
+    </div>
+  `;
+  document.getElementById('booking-modal').classList.add('active');
+}
+
+async function submitBooking(docId, fee){
+  const payload = {
+    doctor_id: docId,
+    date: new Date().toISOString().slice(0,10),
+    time: '04:30 PM',
+    type: document.getElementById('bk-type').value,
+    symptoms: document.getElementById('bk-symptoms').value,
+    amount: fee,
+    payment_method: 'Card'
+  };
+
+  const res = await fetch('/api/appointments', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
+    body: JSON.stringify(payload)
+  });
+  if(res.ok){
+    document.getElementById('booking-modal').classList.remove('active');
+    toast('Consultation booked and updated in database!');
+    showPatientSubView('appointments');
+  }
+}
+
+async function markCompleted(id){
+  await fetch(`/api/appointments/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
+    body: JSON.stringify({ status: 'completed' })
+  });
+  toast('Appointment marked completed.');
+}
+
+function logout(){
+  localStorage.clear();
+  location.reload();
+}
+
+function renderAll(){
+  if(!state.currentUser) return;
+  if(state.currentUser.role === 'patient') renderPatientMain();
+  else if(state.currentUser.role === 'doctor') renderDoctorMain();
+  else renderAdminMain();
+}
+
+(async function init(){
+  if(state.currentUser && state.token){
+    await fetchPlatformData();
+    enterShell(state.currentUser.role);
+  }
+})();
+</script>
+</body>
+</html>
